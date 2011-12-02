@@ -14,10 +14,11 @@
 # you should use the packages provided by your distribution.
 
 ### Program Versions:
-NGINX_VER="1.1.8"
+NGINX_VER="1.0.10"
 PHP_VER="5.3.8"
 APC_VER="3.1.9"
 SUHOSIN_VER="0.9.32.1"
+MEMCACHE_VER="3.0.6"
 
 ### Directories
 DSTDIR="/opt"
@@ -32,7 +33,7 @@ LOG_FILE="install.log"
 USER=$(who mom likes | awk '{print $1}')
 
 ### Essential Packages
-ESSENTIAL_PACKAGES="htop vim-nox binutils cpp flex gcc libarchive-zip-perl libc6-dev libcompress-zlib-perl m4 libpcre3 libpcre3-dev libssl-dev libpopt-dev lynx make perl perl-modules openssl unzip zip autoconf2.13 gnu-standards automake libtool bison build-essential zlib1g-dev ntp ntpdate autotools-dev g++ bc subversion psmisc"
+ESSENTIAL_PACKAGES="htop vim-nox binutils cpp flex gcc libarchive-zip-perl libc6-dev libcompress-zlib-perl m4 libpcre3 libpcre3-dev libssl-dev libpopt-dev lynx make perl perl-modules openssl unzip zip autoconf2.13 gnu-standards automake libtool bison build-essential zlib1g-dev ntp ntpdate autotools-dev g++ bc subversion psmisc libmemcache-dev imagemagick"
 
 ### PHP Libraries
 PHP_LIBRARIES="install libmysqlclient-dev libcurl4-openssl-dev libgd2-xpm-dev libjpeg62-dev libpng3-dev libxpm-dev libfreetype6-dev libt1-dev libmcrypt-dev libxslt1-dev libbz2-dev libxml2-dev libevent-dev libltdl-dev libmagickwand-dev imagemagick libreadline-dev libc-client-dev"
@@ -75,6 +76,27 @@ function check_download () {
 	fi
 }
 
+function install_memcache() {
+	cd $TMPDIR
+        #Get the Memcached package
+        echo "Downloading and extracing the memcache-$MEMCACHE_VER package..." >&3
+        wget "http://pecl.php.net/get/memcache-$MEMCACHE_VER.tgz" & progress
+        echo "Extracting and verifying memcache..." >&3
+        tar xzvf "memcache-$MEMCACHE_VER.tgz"
+        check_download "MEMCACHE" "$TMPDIR/memcache-$MEMCACHE_VER"
+        cd $TMPDIR/memcache-$MEMCACHE_VER
+        echo 'Configuring memcache...' >&3
+        $DSTDIR/php/bin/phpize -clean
+        ./configure --enable-memcache --with-php-config=$DSTDIR/php5/bin/php-config --with-libdir=$DSTDIR/php5/lib/php 
+        echo 'Compiling memcache...' >&3
+        make all & progress
+        echo 'Installing memcache...' >&3
+        make install
+        echo 'Enabling memcache in php...' >&3
+        echo 'extension = memcache.so' > /etc/php5/conf.d/memcache.ini
+        echo -e '\E[47;34m\b\b\b\b'"Done" >&3; tput sgr0 >&3
+}
+
 function install_mysql() {
 # Installing MySQL server (this is escaped in order to be able to type the password in the initial dialog)
 	echo "Installing MySQL..." >&3
@@ -114,8 +136,8 @@ function install_php() {
 --with-curl \
 --with-pear \
 --with-gd \
---with-jpeg-dir \
---with-png-dir \
+--with-jpeg-dir=/usr \
+--with-png-dir=/usr \
 --with-zlib \
 --with-xpm-dir \
 --with-freetype-dir \
@@ -127,7 +149,7 @@ function install_php() {
 --with-pdo-mysql \
 --with-openssl \
 --with-xmlrpc \
---with-xsl \
+--with-xsl=shared \
 --with-bz2 \
 --with-gettext \
 --with-readline \
@@ -136,9 +158,13 @@ function install_php() {
 --with-imap \
 --with-imap-ssl \
 --with-kerberos \
+--with-pcre-dir \
 --disable-debug \
+--disable-rpath \
 --enable-fpm \
 --enable-cli \
+--enable-gd-native-ttf \
+--enable-json \
 --enable-inline-optimization \
 --enable-exif \
 --enable-wddx \
@@ -147,6 +173,7 @@ function install_php() {
 --enable-calendar \
 --enable-ftp \
 --enable-mbstring \
+--enable-pcntl=shared \
 --enable-soap \
 --enable-sockets \
 --enable-sqlite-utf8 \
@@ -416,6 +443,7 @@ echo "  - Nginx $NGINX_VER;" >&3
 echo "  - PHP $PHP_VER;" >&3
 echo "  - APC $APC_VER;" >&3
 echo "  - Suhosin $SUHOSIN_VER;" >&3
+echo "  - Memcache $MEMCACHE_VER;" >&3
 echo "=========================================================================" >&3
 echo "For more information please visit:" >&3
 echo "https://github.com/vladgh/VladGh.com-LEMP" >&3
@@ -436,6 +464,7 @@ install_mysql
 
 install_php
 install_apc
+install_memcache
 install_suhosin
 check_php
 
